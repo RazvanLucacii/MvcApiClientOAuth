@@ -32,10 +32,10 @@ namespace MvcApiClientOAuth.Controllers
             else
             {
                 ViewData["MENSAJE"] = "Ya tienes tu token";
-                HttpContext.Session.SetString("TOKEN", token);
                 ClaimsIdentity identity = new ClaimsIdentity(CookieAuthenticationDefaults.AuthenticationScheme, ClaimTypes.Name, ClaimTypes.Role);
                 identity.AddClaim(new Claim(ClaimTypes.Name, model.UserName));
-                identity.AddClaim(new Claim(ClaimTypes.NameIdentifier, model.Password));
+                identity.AddClaim(new Claim(ClaimTypes.NameIdentifier, model.Password)); 
+                identity.AddClaim(new Claim("TOKEN", token));
                 ClaimsPrincipal userPrincipal = new ClaimsPrincipal(identity);
                 await HttpContext.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, userPrincipal, new AuthenticationProperties
                 {

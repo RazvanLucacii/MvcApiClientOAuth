@@ -1,4 +1,5 @@
-﻿using MvcApiClientOAuth.Models;
+﻿using MvcApiClientOAuth.Filters;
+using MvcApiClientOAuth.Models;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System.Net.Http.Headers;
@@ -11,10 +12,15 @@ namespace MvcApiClientOAuth.Services
         private string UriApiEmpleados;
         private MediaTypeWithQualityHeaderValue header;
 
-        public ServiceApiEmpleados(IConfiguration configuration)
+        private IHttpContextAccessor httpContextAccessor;
+
+
+
+        public ServiceApiEmpleados(IConfiguration configuration, IHttpContextAccessor httpContextAccessor)
         {
             this.UriApiEmpleados = configuration.GetValue<string>("ApiUrls:ApiEmpleados");
             this.header = new MediaTypeWithQualityHeaderValue("application/json");
+            this.httpContextAccessor = httpContextAccessor;
         }
 
         public async Task<string> GetTokenAsync(string username, string password)
@@ -94,11 +100,71 @@ namespace MvcApiClientOAuth.Services
             return empleados;
         }
 
-        public async Task<Empleado> GetEmpleadoAsync(int idEmpleado, string token)
+        public async Task<Empleado> GetEmpleadoAsync(int idEmpleado)
         {
+            string token =
+                this.httpContextAccessor
+                .HttpContext.User
+                .FindFirst(x => x.Type == "TOKEN").Value;
             string request = "api/empleados/" + idEmpleado;
+            Empleado empleado = await this.CallApiAsync<Empleado>(request);
+            return empleado;
+        }
+
+        public async Task<Empleado> GetPerfilEmpleadoAsync()
+        {
+            string token = this.httpContextAccessor.HttpContext.User.FindFirst(x => x.Type == "TOKEN").Value;
+            string request = "api/empleados/perfilempleado";
             Empleado empleado = await this.CallApiAsync<Empleado>(request, token);
             return empleado;
         }
+
+        public async Task<List<Empleado>> GetCompisTrabajoAsync()
+        {
+            string token = this.httpContextAccessor.HttpContext.User.FindFirst(x => x.Type == "TOKEN").Value;
+            string request = "api/empleados/compiscurro";
+            List<Empleado> compis = await this.CallApiAsync<List<Empleado>>(request, token);
+            return compis;
+        }
+
+        public async Task<List<string>> GetOficiosAsync()
+        {
+            string request = "api/empleados/oficios";
+            List<string> oficios = await this.CallApiAsync<List<string>>(request);
+            return oficios;
+        }
+
+        private string TransformCollectionToQuery(List<string> collection)
+        {
+            string result = "";
+            foreach(string elem in collection)
+            {
+                result += "oficio=" + elem + "&";
+            }
+            result = result.TrimEnd('&');
+            return result;
+        }
+
+        public async Task<List<Empleado>> GetEmpleadosOficiosAsync(List<string> oficios)
+        {
+            string request = "api/empleados/empleadosoficios";
+            string data = this.TransformCollectionToQuery(oficios);
+            List<Empleado> empleados = await this.CallApiAsync<List<Empleado>>(request + "?" + data);
+            return empleados;
+        }
+
+        public async Task UpdateEmpleadosOficiosAsync(int incremento, List<string> oficios)
+        {
+            string request = "api/empleados/incrementarsalariosoficios/" + incremento;
+            string data = this.TransformCollectionToQuery(oficios);
+            using (HttpClient client = new HttpClient())
+            {
+                client.BaseAddress = new Uri(this.UriApiEmpleados);
+                client.DefaultRequestHeaders.Clear();
+                client.DefaultRequestHeaders.Accept.Add(this.header);
+                HttpResponseMessage response = await client.PutAsync(request + "?" + data, null);
+            }
+        }
+
     }
 }
